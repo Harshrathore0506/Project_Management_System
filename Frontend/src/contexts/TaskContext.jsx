@@ -60,8 +60,12 @@ export function TaskProvider({ children }) {
   // CREATE TASK
   // --------------------
   const createTask = async (taskData) => {
+    const token = localStorage.getItem("token");
     try {
-      const response = await API.post("/tasks", taskData);
+      const response = await API.post("/tasks", taskData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log(response.data);
       setTasks((prev) => [...prev, response.data]);
     } catch (error) {
       console.error("Failed to create task:", error);
@@ -72,8 +76,11 @@ export function TaskProvider({ children }) {
   // UPDATE TASK
   // --------------------
   const updateTask = async (taskId, updates) => {
+    const token = localStorage.getItem("token");
     try {
-      const response = await API.put(`/tasks/${taskId}`, updates);
+      const response = await API.put(`/tasks/${taskId}`, updates, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setTasks((prev) =>
         prev.map((task) => (task.id === taskId ? response.data : task))
       );

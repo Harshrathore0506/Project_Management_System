@@ -3,22 +3,37 @@ import { PlusCircle, Trash2, ArrowLeft, Plus, Check } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTasks } from "../../contexts/TaskContext";
 import { useCompany } from "../../contexts/CompanyContext";
+import { useProjects } from "../../contexts/ProjectContext";
+import { useAuth } from "../../contexts/AuthContext";
+import API from "../auth/api";
+
 const Tasks = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const isEditMode = !!id;
   const [loading, setLoading] = useState(isEditMode);
   const { members } = useCompany();
+  const { tasks, fetchTasks } = useTasks();
+  const { projects } = useProjects();
 
-  const { tasks, createTask, updateTask, deleteTask } = useTasks();
   const [editingTaskId, setEditingTaskId] = useState(null);
+
+  // ✅ keep backend values here, but UI labels will remain unchanged
+  const statusOptions = [
+    { value: "NotStarted", label: "To Do" },
+    { value: "InProgress", label: "In Progress" },
+    { value: "Completed", label: "Completed" },
+    { value: "Blocked", label: "Blocked" },
+  ];
 
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
-    status: "To Do",
+    status: "NotStarted", // ✅ backend enum value
     assignedTo: "",
     dueDate: "",
     priority: "Medium",
+    projectId: "",
     subtasks: [],
   });
 
@@ -31,7 +46,7 @@ const Tasks = () => {
 
   useEffect(() => {
     setEmployees(members);
-  }, []);
+  }, [members]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -40,19 +55,18 @@ const Tasks = () => {
         setNewTask({
           title: task.title || "",
           description: task.description || "",
-          status: task.status || "To Do",
-          assignedTo:
-            employees.find((emp) => emp.id === task.assignees?.[0]?.userId)
-              ?.name || "",
-          dueDate: task.dueDate || "",
+          status: task.status || "NotStarted", // ✅ map backend value
+          assignedTo: task.assignees?.[0]?.userId || "",
+          dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
           priority: task.priority || "Medium",
+          projectId: task.projectId || "",
           subtasks: task.subtasks || [],
         });
         setEditingTaskId(task.id);
       }
       setLoading(false);
     }
-  }, [isEditMode, id, tasks, employees]);
+  }, [isEditMode, id, tasks]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -86,43 +100,73 @@ const Tasks = () => {
     }));
   };
 
-  const handleSubmitTask = (e) => {
+  const handleSubmitTask = async (e) => {
     e.preventDefault();
-    if (!newTask.title || !newTask.assignedTo || !newTask.dueDate) return;
+    if (
+      !newTask.title ||
+      !newTask.assignedTo ||
+      !newTask.dueDate ||
+      !newTask.projectId
+    )
+      return;
+
+    const formattedSubtasks = newTask.subtasks.map((st) => ({
+      title: st.title,
+      dueDate: new Date(st.dueDate).toISOString(),
+      dueTime: st.dueTime.length === 5 ? `${st.dueTime}:00` : st.dueTime,
+      completed: st.completed || false,
+    }));
 
     const taskData = {
       title: newTask.title,
       description: newTask.description,
-      status: newTask.status,
-      dueDate: newTask.dueDate,
+      status: newTask.status, // ✅ backend enum value
+      dueDate: new Date(newTask.dueDate).toISOString(),
       priority: newTask.priority,
-      projectId: 1,
-      companyId: 1,
-      createdBy: 1,
+      projectId: Number(newTask.projectId),
+      companyId: user.companyId,
+      createdById: user.userId,
       assignees: [
         {
-          userId: employees.find((emp) => emp.name === newTask.assignedTo)?.id,
+          userId: Number(newTask.assignedTo),
           role: "Developer",
-          assignedAt: new Date().toISOString().split("T")[0],
+          assignedAt: new Date().toISOString(),
           isActive: true,
         },
       ],
-      subtasks: newTask.subtasks,
+      subtasks: formattedSubtasks,
     };
 
-    if (editingTaskId) {
-      updateTask(editingTaskId, taskData);
-    } else {
-      createTask(taskData);
+    console.log("🚀 Sending taskData:", taskData);
+
+    try {
+      const token = localStorage.getItem("token");
+      if (editingTaskId) {
+        await API.put(`/tasks/${id}`, taskData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } else {
+        await API.post(`/tasks`, taskData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      await fetchTasks();
+      navigate("/tasks");
+    } catch (error) {
+      console.error(
+        "❌ Task submit failed:",
+        error.response?.data || error.message
+      );
     }
 
     setNewTask({
       title: "",
       description: "",
-      status: "To Do",
-      assignedTo: employees[0]?.name || "",
+      status: "NotStarted", // ✅ reset correctly
+      assignedTo: employees[0]?.userId || "",
       dueDate: "",
       priority: "Medium",
+      projectId: "",
       subtasks: [],
     });
     setEditingTaskId(null);
@@ -154,6 +198,7 @@ const Tasks = () => {
           <div className="p-8 border-b border-slate-200/80">
             <form onSubmit={handleSubmitTask}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Task Title */}
                 <div className="md:col-span-2">
                   <label htmlFor="title" className={labelClasses}>
                     Task Title
@@ -170,6 +215,7 @@ const Tasks = () => {
                   />
                 </div>
 
+                {/* Description */}
                 <div className="md:col-span-2">
                   <label htmlFor="description" className={labelClasses}>
                     Description
@@ -185,6 +231,7 @@ const Tasks = () => {
                   />
                 </div>
 
+                {/* Status */}
                 <div>
                   <label htmlFor="status" className={labelClasses}>
                     Status
@@ -195,12 +242,36 @@ const Tasks = () => {
                     value={newTask.status}
                     onChange={handleInputChange}
                     className={inputClasses}>
-                    <option value="To Do">To Do</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Project Dropdown */}
+                <div>
+                  <label htmlFor="projectId" className={labelClasses}>
+                    Project
+                  </label>
+                  <select
+                    id="projectId"
+                    name="projectId"
+                    value={newTask.projectId}
+                    onChange={handleInputChange}
+                    className={inputClasses}
+                    required>
+                    <option value="">-- Select Project --</option>
+                    {projects.map((proj) => (
+                      <option key={proj.projectId} value={proj.projectId}>
+                        {proj.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Assign To */}
                 <div>
                   <label htmlFor="assignedTo" className={labelClasses}>
                     Assign To
@@ -212,16 +283,16 @@ const Tasks = () => {
                     onChange={handleInputChange}
                     className={inputClasses}
                     required>
+                    <option value="">-- Select Employee --</option>
                     {employees.map((emp) => (
-                      <option
-                        key={emp.id}
-                        value={`${emp.first_name} ${emp.last_name}`}>
-                        {`${emp.first_name} ${emp.last_name}`}
+                      <option key={emp.userId} value={emp.userId}>
+                        {`${emp.firstName} ${emp.lastName}`}
                       </option>
                     ))}
                   </select>
                 </div>
 
+                {/* Priority */}
                 <div>
                   <label htmlFor="priority" className={labelClasses}>
                     Priority
@@ -238,6 +309,7 @@ const Tasks = () => {
                   </select>
                 </div>
 
+                {/* Due Date */}
                 <div>
                   <label htmlFor="dueDate" className={labelClasses}>
                     Main Task Due Date
@@ -253,6 +325,7 @@ const Tasks = () => {
                   />
                 </div>
 
+                {/* Subtasks */}
                 <div className="md:col-span-2">
                   <label className={labelClasses}>Subtasks</label>
                   <div className="flex flex-col md:flex-row gap-2 items-start">
