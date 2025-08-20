@@ -34,7 +34,7 @@ export function CompanyProvider({ children }) {
   };
 
   useEffect(() => {
-    if (role === "admin" && user?.companyId && !fetchedRef.current) {
+    if (role !== "employee" && user?.companyId && !fetchedRef.current) {
       fetchedRef.current = true;
       getMembers(user.companyId);
     }

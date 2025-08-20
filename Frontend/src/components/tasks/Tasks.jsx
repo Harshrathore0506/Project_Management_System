@@ -13,12 +13,11 @@ const Tasks = () => {
   const isEditMode = !!id;
   const [loading, setLoading] = useState(isEditMode);
   const { members } = useCompany();
-  const { tasks, fetchTasks } = useTasks();
+  const { fetchTasks } = useTasks();
   const { projects } = useProjects();
 
   const [editingTaskId, setEditingTaskId] = useState(null);
 
-  // ✅ keep backend values here, but UI labels will remain unchanged
   const statusOptions = [
     { value: "NotStarted", label: "To Do" },
     { value: "InProgress", label: "In Progress" },
@@ -29,7 +28,7 @@ const Tasks = () => {
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
-    status: "NotStarted", // ✅ backend enum value
+    status: "NotStarted",
     assignedTo: "",
     dueDate: "",
     priority: "Medium",
@@ -48,25 +47,51 @@ const Tasks = () => {
     setEmployees(members);
   }, [members]);
 
+  // ✅ Fetch task details when editing
   useEffect(() => {
-    if (isEditMode) {
-      const task = tasks.find((t) => t.id === Number(id));
-      if (task) {
+    const fetchTaskById = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await API.get(`/tasks/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const task = res.data;
+
         setNewTask({
           title: task.title || "",
           description: task.description || "",
-          status: task.status || "NotStarted", // ✅ map backend value
-          assignedTo: task.assignees?.[0]?.userId || "",
-          dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
+          status: task.status || "NotStarted",
+          assignedTo: task.assignees?.[0]?.userId?.toString() || "",
+          dueDate: task.dueDate
+            ? new Date(task.dueDate).toISOString().split("T")[0]
+            : "",
           priority: task.priority || "Medium",
-          projectId: task.projectId || "",
-          subtasks: task.subtasks || [],
+          projectId: task.projectId?.toString() || "",
+          subtasks: (task.subtasks || []).map((st) => ({
+            id: st.id || Date.now(),
+            title: st.title,
+            dueDate: st.dueDate
+              ? new Date(st.dueDate).toISOString().split("T")[0]
+              : "",
+            dueTime: st.dueTime ? st.dueTime.slice(0, 5) : "",
+            completed: st.completed || false,
+          })),
         });
         setEditingTaskId(task.id);
+      } catch (error) {
+        console.error(
+          "❌ Failed to fetch task:",
+          error.response?.data || error.message
+        );
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
+    };
+
+    if (isEditMode) {
+      fetchTaskById();
     }
-  }, [isEditMode, id, tasks]);
+  }, [isEditMode, id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -120,7 +145,7 @@ const Tasks = () => {
     const taskData = {
       title: newTask.title,
       description: newTask.description,
-      status: newTask.status, // ✅ backend enum value
+      status: newTask.status,
       dueDate: new Date(newTask.dueDate).toISOString(),
       priority: newTask.priority,
       projectId: Number(newTask.projectId),
@@ -137,11 +162,9 @@ const Tasks = () => {
       subtasks: formattedSubtasks,
     };
 
-    console.log("🚀 Sending taskData:", taskData);
-
     try {
       const token = localStorage.getItem("token");
-      if (editingTaskId) {
+      if (isEditMode) {
         await API.put(`/tasks/${id}`, taskData, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -162,8 +185,8 @@ const Tasks = () => {
     setNewTask({
       title: "",
       description: "",
-      status: "NotStarted", // ✅ reset correctly
-      assignedTo: employees[0]?.userId || "",
+      status: "NotStarted",
+      assignedTo: employees[0]?.userId?.toString() || "",
       dueDate: "",
       priority: "Medium",
       projectId: "",
@@ -176,6 +199,14 @@ const Tasks = () => {
   const inputClasses =
     "w-full bg-white/70 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors placeholder:text-slate-400";
   const labelClasses = "block text-sm font-medium text-blue-800 mb-1.5";
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-blue-800">
+        Loading task details...
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -370,12 +401,6 @@ const Tasks = () => {
                               Due: {st.dueDate} at {st.dueTime}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSubtask(st.id)}
-                            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100 transition-all">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </li>
                       ))}
                     </ul>
@@ -387,13 +412,13 @@ const Tasks = () => {
                 <button
                   type="submit"
                   className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                  {editingTaskId ? (
+                  {isEditMode ? (
                     <>
                       <Check className="w-5 h-5" /> Update Task
                     </>
                   ) : (
                     <>
-                      <PlusCircle className="w-5 h-5" /> Add Task
+                      <PlusCircle className="w-5 h-5" /> Create Task
                     </>
                   )}
                 </button>

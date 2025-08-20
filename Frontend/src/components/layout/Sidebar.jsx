@@ -66,7 +66,7 @@ export function Sidebar({ currentPage }) {
             </button>
           </li>
 
-          {role !== "Employee" && (
+          {role !== "employee" && (
             <li>
               <button
                 onClick={() => navigate("/leaves")}

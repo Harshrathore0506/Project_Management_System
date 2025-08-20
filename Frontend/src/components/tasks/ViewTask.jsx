@@ -1,7 +1,8 @@
 import React from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTasks } from "../../contexts/TaskContext";
 import { useAuth } from "../../contexts/AuthContext";
+import API from "../auth/api"; // ✅ import API for delete request
 import {
   ArrowLeft,
   Calendar,
@@ -11,16 +12,28 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 export default function ViewTask() {
-  const { deleteTask } = useTasks();
-  const { id } = useParams(); // ✅ taking role from params\
-  const { tasks, toggleSubtaskCompletion } = useTasks();
+  const { id } = useParams();
+  const { tasks, toggleSubtaskCompletion, deleteTask, fetchTasks } = useTasks();
   const { role } = useAuth();
   const navigate = useNavigate();
 
   const task = tasks.find((t) => t.taskId === parseInt(id));
+
+  // ✅ Delete handler
+  const handleDelete = async (taskId) => {
+    try {
+      if (!window.confirm("Are you sure you want to delete this task?")) return;
+      await API.delete(`/tasks/${taskId}`); // Call backend
+      deleteTask(taskId);
+      fetchTasks(); // Update context
+      navigate("/tasks"); // Redirect after delete
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      alert("Error deleting task. Try again!");
+    }
+  };
 
   if (!task) {
     return (
@@ -55,7 +68,7 @@ export default function ViewTask() {
                 Update
               </button>
               <button
-                onClick={() => deleteTask(task.taskId)}
+                onClick={() => handleDelete(task.taskId)} // ✅ merged delete API + context
                 className="flex items-center gap-2 px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
                 <Trash2 className="w-4 h-4" />
                 Delete

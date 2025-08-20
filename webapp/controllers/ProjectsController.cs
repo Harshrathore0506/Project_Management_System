@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
- using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using webapp.Data;
 using webapp.Models;
@@ -109,7 +109,7 @@ namespace webapp.Controllers
         }
 
         // POST: api/projects
-        [Authorize(Roles = "admin")]
+        [Authorize]
         [HttpPost]
         public async Task<ActionResult<ProjectReadDTO>> CreateProject(ProjectCreateDTO dto)
         {
@@ -216,7 +216,7 @@ namespace webapp.Controllers
         }
 
         // GET: api/projects/company/{companyId}
-        [Authorize(Roles = "admin")]
+        [Authorize]
         [HttpGet("company/{companyId}")]
         public async Task<ActionResult<IEnumerable<ProjectReadDTO>>> GetProjectsByCompany(int companyId)
         {
@@ -259,7 +259,7 @@ namespace webapp.Controllers
             return Ok(projects);
         }
         // PUT: api/projects/{id}
-        [Authorize(Roles = "admin")]
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateProject(int id, ProjectUpdateDTO dto)
         {
@@ -319,7 +319,7 @@ namespace webapp.Controllers
 
 
         // DELETE: api/projects/{id}
-        [Authorize(Roles = "admin")]
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProject(int id)
         {

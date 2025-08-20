@@ -18,7 +18,7 @@ export function TaskProvider({ children }) {
     setLoading(true);
     try {
       let url = "";
-      if (user.role === "admin") {
+      if (user.role !== "employee") {
         url = `/tasks/company/${user.companyId}`;
       } else {
         url = `/tasks/user/${user.userId}`;

@@ -37,7 +37,7 @@ export function TasksPage() {
           <h1 className="text-2xl font-bold text-blue-950">Tasks</h1>
           <p className="text-blue-800">Manage and track project tasks</p>
         </div>
-        {role !== "Employee" && (
+        {role !== "employee" && (
           <button
             onClick={() => navigate("/create-task")}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md">
@@ -110,7 +110,7 @@ export function TasksPage() {
               ? "Try adjusting your search or filters"
               : "Create your first task to get started"}
           </p>
-          {role !== "Employee" && (
+          {role !== "employee" && (
             <button
               onClick={() => navigate("/create-task")}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">

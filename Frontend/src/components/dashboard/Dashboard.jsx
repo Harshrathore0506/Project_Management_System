@@ -22,7 +22,7 @@ export function Dashboard() {
       navigate("/login");
       return;
     }
-    if (!authLoading && user?.companyId && role === "admin") {
+    if (!authLoading && user?.companyId && role !== "employee") {
       getMembers(user.companyId);
     }
     getProject();
@@ -128,8 +128,8 @@ export function Dashboard() {
             ) : (
               recentProjects.map((project, i) => (
                 <motion.div
-                  key={`project-${project.project_id}-${i}`}
-                  onClick={() => navigate(`/project/${project.project_id}`)}
+                  key={`project-${project.projectId}-${i}`}
+                  onClick={() => navigate(`/project/${project.projectId}`)}
                   variants={cardVariants}
                   custom={i * 0.2 + 0.6}
                   className="flex items-center justify-between p-3 hover:bg-blue-50/70 rounded-lg transition-colors cursor-pointer">
@@ -172,8 +172,8 @@ export function Dashboard() {
             ) : (
               upcomingTasks.map((task, i) => (
                 <motion.div
-                  key={`task-${task.id}-${i}`}
-                  onClick={() => navigate(`/view-task/${task.id}`)}
+                  key={`task-${task.taskId}-${i}`}
+                  onClick={() => navigate(`/view-task/${task.taskId}`)}
                   variants={cardVariants}
                   custom={i * 0.2 + 1}
                   className="flex items-center justify-between p-3 hover:bg-blue-50/70 rounded-lg transition-colors cursor-pointer">

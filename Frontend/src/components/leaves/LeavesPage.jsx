@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useDebugValue, useEffect, useState } from "react";
 import {
   Plus,
   Search,
@@ -10,12 +10,15 @@ import {
 } from "lucide-react";
 import { useLeaves } from "../../contexts/LeaveContext";
 import { LeaveCard } from "./LeaveCard";
-
+import { useAuth } from "../../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 export function LeavesPage() {
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const { leaves } = useLeaves();
+  const { user, role, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   const filteredLeaves = leaves.filter((leave) => {
     const matchesSearch = leave.reason
