@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// src/pages/projects/ProjectsPage.jsx
+import React, { useEffect, useState } from "react";
 import { Plus, Search, Filter, Calendar } from "lucide-react";
 import { useProjects } from "../../contexts/ProjectContext";
 import { ProjectCard } from "./ProjectCard";
@@ -11,15 +12,24 @@ export function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const { projects } = useProjects();
   const { role } = useAuth();
+  const [filteredProjects, setFilteredProjects] = useState([]);
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch =
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "All" || project.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    if (!projects) return;
+
+    const filtered = projects.filter((project) => {
+      const matchesSearch =
+        project?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project?.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "All" || project?.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    setFilteredProjects(filtered);
+  }, [projects, searchTerm, statusFilter]);
 
   const statusOptions = [
     "All",
@@ -33,6 +43,7 @@ export function ProjectsPage() {
     <div
       className="space-y-6 animate-fadeSlideUp"
       style={{ animationDuration: "0.6s", animationFillMode: "forwards" }}>
+      {/* Header */}
       <div className="flex items-center justify-between animate-fadeSlideUp delay-100">
         <div>
           <h1 className="text-2xl font-bold text-blue-950">Projects</h1>
@@ -41,7 +52,7 @@ export function ProjectsPage() {
           </p>
         </div>
 
-        {role !== "Employee" && (
+        {role !== "employee" && (
           <button
             onClick={() => navigate("/create-project")}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md hover:scale-105 transform">
@@ -51,6 +62,7 @@ export function ProjectsPage() {
         )}
       </div>
 
+      {/* Search & Filters */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-slate-200/80 p-6 animate-fadeSlideUp delay-200">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
@@ -79,10 +91,11 @@ export function ProjectsPage() {
         </div>
       </div>
 
+      {/* Project List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.map((project, index) => (
           <div
-            key={index}
+            key={project.id || index}
             className="animate-fadeSlideUp"
             style={{
               animationDelay: `${0.1 * index + 0.3}s`,
@@ -96,6 +109,7 @@ export function ProjectsPage() {
         ))}
       </div>
 
+      {/* Empty State */}
       {filteredProjects.length === 0 && (
         <div className="text-center py-12 animate-fadeSlideUp delay-400">
           <div className="w-16 h-16 bg-blue-100/70 rounded-full flex items-center justify-center mx-auto mb-4">

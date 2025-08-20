@@ -1,101 +1,127 @@
-// src/contexts/ProjectContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
-import API from "../components/auth/api";
 import { useAuth } from "./AuthContext";
+import API from "../components/auth/api";
 
 const ProjectContext = createContext();
 
 export function ProjectProvider({ children }) {
   const [projects, setProjects] = useState([]);
-  const { user } = useAuth();
+  const { user, role, isLoading } = useAuth();
 
-  const getProjects = async () => {
+  // 🔹 Fetch all projects
+  const getProject = async () => {
     try {
-      const res = await API.get(`/projects/company/${user.companyId}`);
-      setProjects(res.data);
+      if (!user) return;
+
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      let response;
+      if (role?.toLowerCase() === "employee") {
+        response = await API.get(`/projects/user/${user.userId}`, config);
+      } else {
+        response = await API.get(`/projects/company/${user.companyId}`, config);
+      }
+
+      setProjects(response.data);
     } catch (err) {
-      console.error("Error fetching projects:", err);
+      console.error("Failed to fetch projects:", err);
+      setProjects([]);
     }
   };
 
-  const createProject = async (data) => {
-    const token = localStorage.getItem("token");
-    const formData = new FormData();
+  // 🔹 Fetch single project by ID
+  const getProjectById = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return null;
 
-    formData.append("name", data.name);
-    formData.append("description", data.description);
-    formData.append("startDate", data.startDate);
-    formData.append("endDate", data.endDate);
-    formData.append("status", data.status);
-    formData.append("technologies", data.technologies);
+      const response = await API.get(`/projects/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    data.assignedEmployees.forEach((id) => {
-      formData.append("teamMembers", id);
-    });
-
-    if (data.documentFile) {
-      formData.append("documentFile", data.documentFile);
+      return response.data;
+    } catch (err) {
+      console.error("Failed to fetch project:", err);
+      return null;
     }
-
-    const res = await API.post("/projects", formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    setProjects((prev) => [...prev, res.data]);
   };
 
-  const updateProject = async (id, data) => {
-    const token = localStorage.getItem("token");
-    const formData = new FormData();
+  // 🔹 Create project (backend + state)
+  const addProjectInState = async (newProject) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
-    formData.append("name", data.name);
-    formData.append("description", data.description);
-    formData.append("startDate", data.startDate);
-    formData.append("endDate", data.endDate);
-    formData.append("status", data.status);
-    formData.append("technologies", data.technologies);
+      const config = { headers: { Authorization: `Bearer ${token}` } };
 
-    data.assignedEmployees.forEach((id) => {
-      formData.append("teamMembers", id);
-    });
+      const res = await API.post("/projects", newProject, config);
+      setProjects((prev) => [...prev, res.data]);
 
-    if (data.documentFile) {
-      formData.append("documentFile", data.documentFile);
+      return res.data;
+    } catch (err) {
+      console.error("Failed to create project:", err);
     }
-
-    const res = await API.put(`/projects/${id}`, formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    setProjects((prev) =>
-      prev.map((p) => (p.id === Number(id) ? res.data : p))
-    );
   };
 
-  const deleteProject = async (id) => {
-    const token = localStorage.getItem("token");
-    await API.delete(`/projects/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+  // 🔹 Update project (backend + state)
+  const updateProjectInState = async (id, updated) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      const res = await API.put(`/projects/${id}`, updated, config);
+      setProjects((prev) => prev.map((p) => (p.id === id ? res.data : p)));
+      getProject();
+      return res.data;
+    } catch (err) {
+      console.error("Failed to update project:", err);
+    }
   };
 
+  // 🔹 Delete project (backend + state)
+  const deleteProjectInState = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      await API.delete(`/projects/${id}`, config);
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+    }
+  };
+
+  // 🔹 Auto-fetch projects when user & role ready
   useEffect(() => {
-    if (user) getProjects();
-  }, [user]);
+    if (!isLoading && user) {
+      getProject();
+    }
+  }, [user, role, isLoading]);
 
   return (
     <ProjectContext.Provider
-      value={{ projects, createProject, updateProject, deleteProject }}>
+      value={{
+        projects,
+        getProject,
+        getProjectById,
+        addProjectInState,
+        updateProjectInState,
+        deleteProjectInState,
+      }}>
       {children}
     </ProjectContext.Provider>
   );
 }
 
-export const useProjects = () => useContext(ProjectContext);
+export function useProjects() {
+  const context = useContext(ProjectContext);
+  if (!context) throw new Error("useProjects must be inside ProjectProvider");
+  return context;
+}

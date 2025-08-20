@@ -12,7 +12,7 @@ import DashboardCard from "../Design/DashboardCard";
 export function Dashboard() {
   const { user, role, isLoading: authLoading } = useAuth();
   const { projects, getProject } = useProjects();
-  const { tasks } = useTasks();
+  const { tasks, fetchTasks } = useTasks();
   const { members, getMembers, isLoading: membersLoading } = useCompany();
   const { leaves } = useLeaves();
   const navigate = useNavigate();
@@ -24,8 +24,9 @@ export function Dashboard() {
     }
     if (!authLoading && user?.companyId && role === "admin") {
       getMembers(user.companyId);
-      getProject();
     }
+    getProject();
+    fetchTasks();
   }, [user, role, authLoading]);
 
   if (authLoading || (role === "admin" && membersLoading)) {

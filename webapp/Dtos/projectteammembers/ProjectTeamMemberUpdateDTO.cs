@@ -5,8 +5,9 @@ namespace webapp.DTOs.ProjectTeamMembers
 {
     public class ProjectTeamMemberUpdateDTO
     {
-        public int Id { get; set; } // Required to identify which team member to update
+        public int? Id { get; set; }           // For updating existing members
+        public int? UserId { get; set; }       // For adding new members
         public ProjectTeamRole? Role { get; set; }
-        public DateTime? AssignedAt { get; set; } // Optional, can update assigned date
+        public DateTime? AssignedAt { get; set; }
     }
 }

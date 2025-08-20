@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using webapp.Data;
 using webapp.Models;
@@ -108,6 +108,69 @@ namespace webapp.Controllers
             return Ok(project);
         }
 
+        // POST: api/projects
+        [Authorize(Roles = "admin")]
+        [HttpPost]
+        public async Task<ActionResult<ProjectReadDTO>> CreateProject(ProjectCreateDTO dto)
+        {
+            var project = new Project
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                Status = dto.Status ?? ProjectStatus.NotStarted,
+                CompanyId = dto.CompanyId,
+                CreatedById = dto.CreatedById,
+                Technologies = dto.Technologies,
+                CreatedAt = DateTime.UtcNow,
+                TeamMembers = dto.TeamMembers?.Select(tm => new ProjectTeamMember
+                {
+                    UserId = tm.UserId,
+                    Role = tm.Role,
+                    AssignedAt = tm.AssignedAt ?? DateTime.UtcNow
+                }).ToList() ?? new List<ProjectTeamMember>()
+            };
+
+            _context.Projects.Add(project);
+            await _context.SaveChangesAsync();
+
+            await _context.Entry(project).Reference(p => p.Company).LoadAsync();
+            await _context.Entry(project).Reference(p => p.CreatedBy).LoadAsync();
+            await _context.Entry(project).Collection(p => p.TeamMembers)
+                .Query().Include(tm => tm.User).LoadAsync();
+
+            var readDto = new ProjectReadDTO
+            {
+                ProjectId = project.ProjectId,
+                Name = project.Name,
+                Description = project.Description,
+                StartDate = project.StartDate,
+                EndDate = project.EndDate,
+                Status = project.Status.ToString(),
+                CompanyId = project.CompanyId,
+                CreatedById = project.CreatedById,
+                Technologies = project.Technologies,
+                CreatedAt = project.CreatedAt,
+                CompanyName = project.Company.CompanyName,
+                CreatedByName = project.CreatedBy.Email,
+                TaskCount = 0,
+                TeamCount = project.TeamMembers.Count,
+                TeamMembers = project.TeamMembers.Select(tm => new ProjectTeamMemberReadDTO
+                {
+                    Id = tm.Id,
+                    ProjectId = tm.ProjectId,
+                    UserId = tm.UserId,
+                    Role = tm.Role.ToString(),
+                    AssignedAt = tm.AssignedAt,
+                    ProjectName = project.Name,
+                    UserName = tm.User.FirstName + " " + tm.User.LastName,
+                    UserEmail = tm.User.Email
+                }).ToList()
+            };
+
+            return CreatedAtAction(nameof(GetProject), new { id = project.ProjectId }, readDto);
+        }
         // GET: api/projects/user/{userId}
         [Authorize]
         [HttpGet("user/{userId}")]
@@ -195,70 +258,6 @@ namespace webapp.Controllers
 
             return Ok(projects);
         }
-
-        // POST: api/projects
-        [Authorize(Roles = "admin")]
-        [HttpPost]
-        public async Task<ActionResult<ProjectReadDTO>> CreateProject(ProjectCreateDTO dto)
-        {
-            var project = new Project
-            {
-                Name = dto.Name,
-                Description = dto.Description,
-                StartDate = dto.StartDate,
-                EndDate = dto.EndDate,
-                Status = dto.Status ?? ProjectStatus.NotStarted,
-                CompanyId = dto.CompanyId,
-                CreatedById = dto.CreatedById,
-                Technologies = dto.Technologies,
-                CreatedAt = DateTime.UtcNow,
-                TeamMembers = dto.TeamMembers?.Select(tm => new ProjectTeamMember
-                {
-                    UserId = tm.UserId,
-                    Role = tm.Role,
-                    AssignedAt = tm.AssignedAt ?? DateTime.UtcNow
-                }).ToList() ?? new List<ProjectTeamMember>()
-            };
-
-            _context.Projects.Add(project);
-            await _context.SaveChangesAsync();
-
-            await _context.Entry(project).Reference(p => p.Company).LoadAsync();
-            await _context.Entry(project).Reference(p => p.CreatedBy).LoadAsync();
-            await _context.Entry(project).Collection(p => p.TeamMembers).Query().Include(tm => tm.User).LoadAsync();
-
-            var readDto = new ProjectReadDTO
-            {
-                ProjectId = project.ProjectId,
-                Name = project.Name,
-                Description = project.Description,
-                StartDate = project.StartDate,
-                EndDate = project.EndDate,
-                Status = project.Status.ToString(),
-                CompanyId = project.CompanyId,
-                CreatedById = project.CreatedById,
-                Technologies = project.Technologies,
-                CreatedAt = project.CreatedAt,
-                CompanyName = project.Company.CompanyName,
-                CreatedByName = project.CreatedBy.Email,
-                TaskCount = 0,
-                TeamCount = project.TeamMembers.Count,
-                TeamMembers = project.TeamMembers.Select(tm => new ProjectTeamMemberReadDTO
-                {
-                    Id = tm.Id,
-                    ProjectId = tm.ProjectId,
-                    UserId = tm.UserId,
-                    Role = tm.Role.ToString(),
-                    AssignedAt = tm.AssignedAt,
-                    ProjectName = project.Name,
-                    UserName = tm.User.FirstName + " " + tm.User.LastName,
-                    UserEmail = tm.User.Email
-                }).ToList()
-            };
-
-            return CreatedAtAction(nameof(GetProject), new { id = project.ProjectId }, readDto);
-        }
-
         // PUT: api/projects/{id}
         [Authorize(Roles = "admin")]
         [HttpPut("{id}")]
@@ -270,33 +269,54 @@ namespace webapp.Controllers
 
             if (project == null) return NotFound();
 
-            if (!string.IsNullOrEmpty(dto.Name)) project.Name = dto.Name;
-            if (!string.IsNullOrEmpty(dto.Description)) project.Description = dto.Description;
-            if (dto.StartDate.HasValue) project.StartDate = dto.StartDate.Value;
-            if (dto.EndDate.HasValue) project.EndDate = dto.EndDate.Value;
-            if (dto.Status.HasValue) project.Status = dto.Status.Value;
-            if (dto.CompanyId.HasValue) project.CompanyId = dto.CompanyId.Value;
-            if (dto.CreatedById.HasValue) project.CreatedById = dto.CreatedById.Value;
-            if (!string.IsNullOrEmpty(dto.Technologies)) project.Technologies = dto.Technologies;
+            // Update main project properties
+            project.Name = dto.Name ?? project.Name;
+            project.Description = dto.Description ?? project.Description;
+            project.StartDate = dto.StartDate ?? project.StartDate;
+            project.EndDate = dto.EndDate ?? project.EndDate;
+            project.Status = dto.Status ?? project.Status;
+            project.CompanyId = dto.CompanyId ?? project.CompanyId;
+            project.CreatedById = dto.CreatedById ?? project.CreatedById;
+            project.Technologies = dto.Technologies ?? project.Technologies;
 
-            if (dto.TeamMembers != null)
+            // Update team members safely without deleting existing
+            if (dto.TeamMembers != null && dto.TeamMembers.Any())
             {
-                foreach (var tmDto in dto.TeamMembers)
+                var existingUserIds = project.TeamMembers.Select(tm => tm.UserId).ToList();
+                var newUserIds = dto.TeamMembers
+                    .Where(tm => tm.UserId.HasValue)
+                    .Select(tm => tm.UserId.Value)
+                    .ToList();
+
+                // Add only new members
+                foreach (var userId in newUserIds.Except(existingUserIds))
                 {
-                    var tm = project.TeamMembers.FirstOrDefault(x => x.Id == tmDto.Id);
-                    if (tm != null)
+                    project.TeamMembers.Add(new ProjectTeamMember
                     {
-                        if (tmDto.Role.HasValue) tm.Role = tmDto.Role.Value;
-                        if (tmDto.AssignedAt.HasValue) tm.AssignedAt = tmDto.AssignedAt.Value;
+                        UserId = userId,
+                        Role = ProjectTeamRole.Contributor,
+                        AssignedAt = DateTime.UtcNow
+                    });
+                }
+
+                // Update existing members' role and assignedAt
+                foreach (var tm in project.TeamMembers)
+                {
+                    var tmDto = dto.TeamMembers.FirstOrDefault(t => t.UserId == tm.UserId);
+                    if (tmDto != null)
+                    {
+                        tm.Role = tmDto.Role ?? tm.Role;
+                        tm.AssignedAt = tmDto.AssignedAt ?? tm.AssignedAt;
                     }
                 }
+
+                // **Removed deletion code** so existing members are preserved
             }
 
-            _context.Entry(project).State = EntityState.Modified;
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
+
 
         // DELETE: api/projects/{id}
         [Authorize(Roles = "admin")]

@@ -163,10 +163,60 @@ namespace webapp.Controllers
         public async Task<ActionResult<List<TaskReadDTO>>> GetTasksByProjectId(int projectId)
         {
             var tasks = await _context.Tasks
-                .Include(t => t.Project)      // <-- Add this
-                .Include(t => t.Company)      // <-- Add this
-                .Include(t => t.CreatedBy)    // <-- Add this
+                .Include(t => t.Project)
+                .Include(t => t.Company)
+                .Include(t => t.CreatedBy)
                 .Where(t => t.ProjectId == projectId)
+                .Select(t => new TaskReadDTO
+                {
+                    TaskId = t.TaskId,
+                    Title = t.Title,
+                    Description = t.Description,
+                    DueDate = t.DueDate,
+                    Status = t.Status.ToString(),
+                    Priority = t.Priority.ToString(),
+                    ProjectId = t.ProjectId,
+                    CompanyId = t.CompanyId,
+                    CreatedById = t.CreatedById,
+                    CreatedAt = t.CreatedAt,
+                    SubtaskCount = t.Subtasks.Count(),
+                    AssigneeCount = t.Assignees.Count(),
+                    ProjectName = t.Project != null ? t.Project.Name : null,
+                    Subtasks = t.Subtasks.Select(s => new SubtaskReadDTO
+                    {
+                        SubtaskId = s.SubtaskId,
+                        Title = s.Title,
+                        DueDate = s.DueDate,
+                        DueTime = s.DueTime,
+                        Completed = s.Completed
+                    }).ToList(),
+                    Assignees = t.Assignees.Select(a => new TaskAssigneeReadDTO
+                    {
+                        UserId = a.UserId,
+                        UserName = a.User.FirstName + " " + a.User.LastName,
+                        Role = a.Role,
+                        AssignedAt = a.AssignedAt,
+                        IsActive = a.IsActive ?? true
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(tasks);
+        }
+
+        // -----------------------------
+        // GET: api/tasks/company/{companyId}
+        // Get Tasks by Company ID
+        // -----------------------------
+        [HttpGet("company/{companyId}")]
+        [Authorize]
+        public async Task<ActionResult<List<TaskReadDTO>>> GetTasksByCompanyId(int companyId)
+        {
+            var tasks = await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.Company)
+                .Include(t => t.CreatedBy)
+                .Where(t => t.CompanyId == companyId)
                 .Select(t => new TaskReadDTO
                 {
                     TaskId = t.TaskId,
@@ -303,7 +353,6 @@ namespace webapp.Controllers
             return NoContent();
         }
 
-
         // -----------------------------
         // Internal helper to get Task by ID
         // -----------------------------
@@ -337,9 +386,7 @@ namespace webapp.Controllers
                     Assignees = t.Assignees.Select(a => new TaskAssigneeReadDTO
                     {
                         UserId = a.UserId,
-
                         UserName = a.User.FirstName + " " + a.User.LastName,
-
                         Role = a.Role,
                         AssignedAt = a.AssignedAt,
                         IsActive = a.IsActive ?? true

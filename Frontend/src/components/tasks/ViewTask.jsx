@@ -1,6 +1,7 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTasks } from "../../contexts/TaskContext";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   ArrowLeft,
   Calendar,
@@ -14,11 +15,12 @@ import { useNavigate } from "react-router-dom";
 
 export default function ViewTask() {
   const { deleteTask } = useTasks();
-  const { id, role } = useParams(); // ✅ taking role from params
+  const { id } = useParams(); // ✅ taking role from params\
   const { tasks, toggleSubtaskCompletion } = useTasks();
+  const { role } = useAuth();
   const navigate = useNavigate();
 
-  const task = tasks.find((t) => t.id === parseInt(id));
+  const task = tasks.find((t) => t.taskId === parseInt(id));
 
   if (!task) {
     return (
@@ -44,16 +46,16 @@ export default function ViewTask() {
 
         <div className="flex items-center gap-3">
           {/* ✅ Show Update/Delete only if role != Employee */}
-          {role !== "Employee" && (
+          {role !== "employee" && (
             <>
               <button
-                onClick={() => navigate(`/update-task/${task.id}`)}
+                onClick={() => navigate(`/update-task/${task.taskId}`)}
                 className="flex items-center gap-2 px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">
                 <Pencil className="w-4 h-4" />
                 Update
               </button>
               <button
-                onClick={() => deleteTask(task.id)}
+                onClick={() => deleteTask(task.taskId)}
                 className="flex items-center gap-2 px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -101,7 +103,7 @@ export default function ViewTask() {
           <ul className="space-y-2 text-blue-800">
             {task.assignees.map((a) => (
               <li key={a.userId} className="flex items-center gap-2">
-                <span className="font-semibold">User ID {a.userId}</span>
+                <span className="font-semibold">{a.userName}</span>
                 <span className="text-sm text-slate-500">({a.role})</span>
               </li>
             ))}
@@ -125,7 +127,7 @@ export default function ViewTask() {
           <ul className="space-y-3">
             {task.subtasks.map((st) => (
               <li
-                key={st.id}
+                key={st.subtaskId}
                 className="flex items-center justify-between p-3 bg-white/70 border border-slate-200 rounded-lg shadow-sm">
                 <div>
                   <p className="font-medium text-blue-900">{st.title}</p>
@@ -137,7 +139,9 @@ export default function ViewTask() {
 
                 {/* Employee can mark complete */}
                 <button
-                  onClick={() => toggleSubtaskCompletion(task.id, st.id)}
+                  onClick={() =>
+                    toggleSubtaskCompletion(task.taskId, st.subtaskId)
+                  }
                   className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition ${
                     st.completed
                       ? "bg-green-100 text-green-700 border border-green-300"

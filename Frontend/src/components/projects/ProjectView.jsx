@@ -2,15 +2,17 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useProjects } from "../../contexts/ProjectContext";
 import { Calendar, ArrowLeft, ListChecks } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 import API from "../auth/api";
 
 export default function ProjectView() {
-  const { id, role } = useParams();
-  const { projects } = useProjects();
+  const { id } = useParams();
+  const { projects, getProject } = useProjects();
   const [project, setProject] = useState(null);
   const [relatedTasks, setRelatedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { role } = useAuth();
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -51,6 +53,7 @@ export default function ProjectView() {
         await API.delete(`/projects/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        await getProject();
         navigate("/projects");
       } catch (error) {
         console.error("Failed to delete project:", error);
@@ -82,7 +85,7 @@ export default function ProjectView() {
         </div>
 
         <div className="flex items-center gap-4">
-          {role !== "Employee" && (
+          {role !== "employee" && (
             <div className="flex gap-2">
               <button
                 onClick={() => navigate(`/update-project/${project.projectId}`)}
@@ -129,7 +132,7 @@ export default function ProjectView() {
             project.teamMembers.length > 0 ? (
               project.teamMembers.map((member, idx) => (
                 <li key={idx}>
-                  User ID: {member.userId} — Role: {member.role}
+                  {member.userName} — Role: {member.role}
                 </li>
               ))
             ) : (

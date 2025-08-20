@@ -65,8 +65,7 @@ export function TaskCard({ task }) {
 
   const project = projects.find((p) => p.id === task.projectId);
   const assigneeNames = task.assignees
-    .filter((a) => a.isActive)
-    .map((a) => members.find((m) => m.id === a.userId)?.name)
+    .map((a) => members.find((m) => m.id === a.userid)?.name)
     .filter(Boolean);
 
   const isOverdue =
@@ -74,7 +73,7 @@ export function TaskCard({ task }) {
 
   return (
     <div
-      onClick={() => navigate(`/view-task/${task.id}`)}
+      onClick={() => navigate(`/view-task/${task.taskId}`)}
       className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">

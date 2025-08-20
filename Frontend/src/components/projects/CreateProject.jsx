@@ -1,20 +1,20 @@
-// src/pages/CreateProject.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Select from "react-select";
-import { useProjects } from "../../contexts/ProjectContext";
-import { useCompany } from "../../contexts/CompanyContext";
 import API from "../auth/api";
+import { useCompany } from "../../contexts/CompanyContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { useProjects } from "../../contexts/ProjectContext";
 
 export default function CreateProject() {
-  const { id } = useParams(); // if id exists → edit mode
+  const { user, role, isLoading: authLoading } = useAuth();
+  const { projects, getProject } = useProjects();
+  const { id } = useParams();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
-  const { projects, createProject, updateProject } = useProjects();
   const { members } = useCompany();
 
   const [loading, setLoading] = useState(false);
-
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -22,81 +22,97 @@ export default function CreateProject() {
     endDate: "",
     status: "Planned",
     technologies: "",
-    assignedEmployees: [],
-    documentFile: null,
+    assignedEmployees: [], // { id?, userId }
   });
 
-  // ✅ Fetch project data from context or API
+  // Load project if edit mode
   useEffect(() => {
-    const loadProject = async () => {
-      if (isEditMode) {
-        let project = projects.find((p) => p.id === Number(id));
-
-        // if not in context, fetch from API
-        if (!project) {
-          try {
-            const token = localStorage.getItem("token");
-            const response = await API.get(`/projects/${id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            project = response.data;
-          } catch (err) {
-            console.error("Failed to fetch project:", err);
-          }
-        }
-
-        if (project) {
+    if (isEditMode) {
+      const loadProject = async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const res = await API.get(`/projects/${id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const project = res.data;
           setProjectData({
-            name: project.name || "",
-            description: project.description || "",
+            name: project.name,
+            description: project.description,
             startDate: project.startDate ? project.startDate.split("T")[0] : "",
             endDate: project.endDate ? project.endDate.split("T")[0] : "",
-            status: project.status || "Planned",
-            technologies: project.technologies || "",
-            assignedEmployees:
-              project.teamMembers?.map((tm) => tm.userId) || [],
-            documentFile: null,
+            status:
+              project.status === 1
+                ? "Planned"
+                : project.status === 2
+                ? "InProgress"
+                : "Completed",
+            technologies: project.technologies,
+            assignedEmployees: project.teamMembers.map((tm) => ({
+              id: tm.id,
+              userId: tm.UserId,
+            })),
           });
+        } catch (err) {
+          console.error("Failed to load project:", err);
         }
-      }
-    };
+      };
+      loadProject();
+    }
+  }, [id, isEditMode]);
 
-    loadProject();
-  }, [isEditMode, id, projects]);
-
-  // ✅ Controlled input handler
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProjectData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ React-Select handler
   const handleSelectChange = (selected) => {
-    setProjectData((prev) => ({
-      ...prev,
-      assignedEmployees: selected.map((s) => s.value),
-    }));
+    setProjectData((prev) => {
+      const newAssigned = selected.map((s) => {
+        const existing = prev.assignedEmployees.find(
+          (tm) => tm.userId === s.value
+        );
+        return existing ? existing : { userId: s.value };
+      });
+      return { ...prev, assignedEmployees: newAssigned };
+    });
   };
 
-  // ✅ File upload handler
-  const handleFileChange = (e) => {
-    setProjectData((prev) => ({
-      ...prev,
-      documentFile: e.target.files[0],
-    }));
-  };
-
-  // ✅ Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
+      const token = localStorage.getItem("token");
+
+      const payload = {
+        name: projectData.name,
+        description: projectData.description,
+        startDate: projectData.startDate,
+        endDate: projectData.endDate,
+        status:
+          projectData.status === "Planned"
+            ? 1
+            : projectData.status === "InProgress"
+            ? 2
+            : 3,
+        companyId: user.companyId, // replace with dynamic value if needed
+        createdById: user.userId, // replace with dynamic value if needed
+        technologies: projectData.technologies,
+        teamMembers: projectData.assignedEmployees.map((tm) => ({
+          UserId: tm.userId,
+          assignedAt: new Date().toISOString(),
+        })),
+      };
+
       if (isEditMode) {
-        await updateProject({ id: Number(id), ...projectData });
+        await API.put(`/projects/${id}`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       } else {
-        await createProject(projectData);
+        await API.post("/projects", payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
       }
+      await getProject();
       navigate("/projects");
     } catch (err) {
       console.error("Failed to save project:", err);
@@ -105,14 +121,10 @@ export default function CreateProject() {
     }
   };
 
-  // ✅ Options for employee select
   const employeeOptions = members.map((m) => ({
     value: m.userId,
-    label: m.name,
+    label: `${m.firstName} ${m.lastName}`,
   }));
-
-  const inputClasses =
-    "w-full border p-2 rounded-md focus:outline-none focus:ring focus:ring-blue-300";
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-md">
@@ -121,103 +133,90 @@ export default function CreateProject() {
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Name */}
         <div>
-          <label className="block mb-1 font-medium">Project Name</label>
+          <label>Project Name</label>
           <input
             type="text"
             name="name"
             value={projectData.name}
             onChange={handleChange}
-            className={inputClasses}
+            className="w-full border p-2 rounded-md"
             required
           />
         </div>
 
-        {/* Description */}
         <div>
-          <label className="block mb-1 font-medium">Description</label>
+          <label>Description</label>
           <textarea
             name="description"
             value={projectData.description}
             onChange={handleChange}
-            className={inputClasses}
+            className="w-full border p-2 rounded-md"
           />
         </div>
 
-        {/* Dates */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block mb-1 font-medium">Start Date</label>
+            <label>Start Date</label>
             <input
               type="date"
               name="startDate"
               value={projectData.startDate}
               onChange={handleChange}
-              className={inputClasses}
+              className="w-full border p-2 rounded-md"
             />
           </div>
           <div>
-            <label className="block mb-1 font-medium">End Date</label>
+            <label>End Date</label>
             <input
               type="date"
               name="endDate"
               value={projectData.endDate}
               onChange={handleChange}
-              className={inputClasses}
+              className="w-full border p-2 rounded-md"
             />
           </div>
         </div>
 
-        {/* Status */}
         <div>
-          <label className="block mb-1 font-medium">Status</label>
+          <label>Status</label>
           <select
             name="status"
             value={projectData.status}
             onChange={handleChange}
-            className={inputClasses}>
+            className="w-full border p-2 rounded-md">
             <option value="Planned">Planned</option>
             <option value="InProgress">In Progress</option>
             <option value="Completed">Completed</option>
           </select>
         </div>
 
-        {/* Technologies */}
         <div>
-          <label className="block mb-1 font-medium">Technologies</label>
+          <label>Technologies</label>
           <input
             type="text"
             name="technologies"
             value={projectData.technologies}
             onChange={handleChange}
-            className={inputClasses}
+            className="w-full border p-2 rounded-md"
           />
         </div>
 
-        {/* Assigned Employees */}
         <div>
-          <label className="block mb-1 font-medium">Assign Employees</label>
+          <label>Assign Employees</label>
           <Select
             isMulti
             options={employeeOptions}
             value={employeeOptions.filter((o) =>
-              projectData.assignedEmployees.includes(o.value)
+              projectData.assignedEmployees.some((tm) => tm.userId === o.value)
             )}
             onChange={handleSelectChange}
           />
         </div>
 
-        {/* Document Upload */}
-        <div>
-          <label className="block mb-1 font-medium">Project Document</label>
-          <input type="file" onChange={handleFileChange} />
-        </div>
-
-        {/* Submit */}
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
           disabled={loading}>
           {loading
             ? "Saving..."

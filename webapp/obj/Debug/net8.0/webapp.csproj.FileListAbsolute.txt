@@ -229,3 +229,4 @@ D:\Virim Company\webapp\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
 D:\Virim Company\webapp\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
 D:\Virim Company\webapp\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
 D:\Virim Company\webapp\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
+D:\Virim Company\webapp\obj\Debug\net8.0\webapp.sourcelink.json

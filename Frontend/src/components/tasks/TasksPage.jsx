@@ -40,8 +40,7 @@ export function TasksPage() {
         {role !== "Employee" && (
           <button
             onClick={() => navigate("/create-task")}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md"
-          >
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md">
             <Plus className="w-5 h-5" />
             New Task
           </button>
@@ -69,8 +68,7 @@ export function TasksPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50"
-              >
+                className="border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50">
                 {statusOptions.map((status) => (
                   <option key={status} value={status}>
                     Status: {status}
@@ -81,8 +79,7 @@ export function TasksPage() {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50"
-            >
+              className="border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50">
               {priorityOptions.map((priority) => (
                 <option key={priority} value={priority}>
                   Priority: {priority}
@@ -95,8 +92,8 @@ export function TasksPage() {
 
       {/* Tasks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+        {filteredTasks.map((task, index) => (
+          <TaskCard key={index} task={task} />
         ))}
       </div>
 
@@ -116,8 +113,7 @@ export function TasksPage() {
           {role !== "Employee" && (
             <button
               onClick={() => navigate("/create-task")}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
               Create Task
             </button>
           )}
